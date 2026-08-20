@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Find Your Social Strategy | Peak Exposure Media</title>
+<meta name="description" content="A short strategy diagnostic to find out whether your business needs an Attention-led or Identity-led social media strategy.">
+
+<link rel="icon" href="assets/pem-icon-gold.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="scan-bg" aria-hidden="true"></div>
+
+<main class="app" id="app">
+
+  <!-- ============ HEADER ============ -->
+  <header class="app-header">
+    <img src="assets/pem-logo-gold.png" alt="Peak Exposure Media" class="header-logo">
+  </header>
+
+  <!-- ============ SIGNAL TRACKER + PROGRESS ============ -->
+  <div class="tracker-wrap" id="trackerWrap" hidden>
+    <div class="signal-tracker" id="signalTracker">
+      <div class="signal-chip" data-signal="awareness"><span class="signal-dot"></span>Awareness</div>
+      <div class="signal-chip" data-signal="relevance"><span class="signal-dot"></span>Relevance</div>
+      <div class="signal-chip" data-signal="perception"><span class="signal-dot"></span>Perception</div>
+      <div class="signal-chip" data-signal="maturity"><span class="signal-dot"></span>Maturity</div>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+
+  <!-- ============ SCREEN: INTRO ============ -->
+  <section class="screen intro-screen" id="screen-intro" data-active="true">
+    <div class="intro-inner">
+      <p class="eyebrow">Strategy Diagnostic</p>
+      <h1 class="intro-title">What does your business<br>need from social media?</h1>
+      <p class="intro-sub">Answer a few quick A-or-B questions and we'll identify whether your business should focus more on earning <strong>Attention</strong>, building <strong>Identity</strong>, or a combination of both.</p>
+      <button class="btn btn-primary btn-large" id="startBtn">
+        <span>Find My Strategy</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <p class="intro-meta">About a minute &middot; 5&ndash;7 quick questions</p>
+    </div>
+  </section>
+
+  <!-- ============ SCREEN: QUESTION ============ -->
+  <section class="screen question-screen" id="screen-question">
+    <button class="back-link" id="backBtn" hidden>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Back
+    </button>
+    <div class="question-inner">
+      <p class="eyebrow" id="questionEyebrow">Diagnosis</p>
+      <h2 class="question-title" id="questionTitle">Loading…</h2>
+
+      <div class="options-grid" id="optionsGrid">
+        <!-- options injected by JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SCREEN: RESULT ============ -->
+  <section class="screen result-screen" id="screen-result">
+    <div class="result-inner">
+
+      <!-- 1. Result label -->
+      <p class="eyebrow">Your Strategy</p>
+      <h2 class="result-headline" id="resultLabel">80% Attention / 20% Identity</h2>
+      <p class="result-band-name" id="resultBandName">Attention Heavy</p>
+
+      <!-- 2 & 3. Spectrum + fixed ratio -->
+      <div class="spectrum-card">
+        <div class="spectrum-labels">
+          <span>Attention <em>— Get Seen. Stay Relevant.</em></span>
+          <span>Identity <em>— Build Meaning. Become Desirable.</em></span>
+        </div>
+        <div class="spectrum-track">
+          <div class="spectrum-fill" id="spectrumFill"></div>
+          <div class="spectrum-marker" id="spectrumMarker">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M12 2 3 20h18L12 2z" fill="currentColor"/></svg>
+          </div>
+        </div>
+        <div class="spectrum-split">
+          <div class="split-item">
+            <span class="split-pct" id="pctAttention">0%</span>
+            <span class="split-label">Attention</span>
+          </div>
+          <div class="split-divider">/</div>
+          <div class="split-item">
+            <span class="split-pct" id="pctIdentity">0%</span>
+            <span class="split-label">Identity</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Personalized explanation -->
+      <div class="result-body">
+        <p class="result-lede" id="resultLede"></p>
+
+        <!-- 5. Top three strategic priorities -->
+        <div class="priority-block">
+          <p class="section-label">Your Top Priorities</p>
+          <div class="priority-pills" id="priorityPills"></div>
+        </div>
+
+        <!-- 6. Recommended content mix -->
+        <div class="section-label mix-heading">Recommended Content Mix</div>
+        <div class="result-columns two-col">
+          <div class="mix-card">
+            <h4>Attention Content</h4>
+            <ul id="mixAttention"></ul>
+          </div>
+          <div class="mix-card">
+            <h4>Identity Content</h4>
+            <ul id="mixIdentity"></ul>
+          </div>
+        </div>
+        <p class="mix-note">Production level isn't the strategy &mdash; Attention earns visibility and relevance, Identity shapes meaning and perception. Both matter; the mix above reflects where your business needs the emphasis right now.</p>
+      </div>
+
+      <!-- 7. CTA / lead capture -->
+      <div class="lead-card">
+        <h3>Want us to turn this into a content strategy?</h3>
+        <p>We'll take your Attention&ndash;Identity diagnosis and build a recommended content mix for your business.</p>
+
+        <form id="leadForm" class="lead-form">
+          <div class="field-row">
+            <label class="field">
+              <span>Name</span>
+              <input type="text" name="lead_name" required autocomplete="name">
+            </label>
+            <label class="field">
+              <span>Company</span>
+              <input type="text" name="lead_company" required autocomplete="organization">
+            </label>
+          </div>
+          <label class="field">
+            <span>Email</span>
+            <input type="email" name="lead_email" required autocomplete="email">
+          </label>
+
+          <!-- Clean, human-readable digest — this is what actually shows up
+               nicely in the email. Placed first so it's the top of the
+               message body. -->
+          <input type="hidden" name="Lead Summary" id="hSummary">
+
+          <!-- Compact, quick-scan fields — kept short so the email stays
+               readable, but still useful for sorting/filtering leads. -->
+          <input type="hidden" name="Result" id="hBand">
+          <input type="hidden" name="Attention / Identity" id="hRatio">
+
+          <!-- Full structured CRM payload — see spec section 7 "Suggested
+               fields." Kept for Zapier/CRM automation later; collapsed out
+               of the way of the readable summary above. Delete this block
+               if you never plan to pipe leads into an external tool. -->
+          <input type="hidden" name="session_id" id="hSessionId">
+          <input type="hidden" name="started_at" id="hStartedAt">
+          <input type="hidden" name="completed_at" id="hCompletedAt">
+          <input type="hidden" name="q1_answer" id="hQ1">
+          <input type="hidden" name="q2_variant" id="hQ2Variant">
+          <input type="hidden" name="q2_answer" id="hQ2Answer">
+          <input type="hidden" name="q2c_answer_if_shown" id="hQ2c">
+          <input type="hidden" name="q3_answer" id="hQ3">
+          <input type="hidden" name="q4_answer" id="hQ4">
+          <input type="hidden" name="q5_answer" id="hQ5">
+          <input type="hidden" name="q6_answer" id="hQ6">
+          <input type="hidden" name="attention_score" id="hAttnScore">
+          <input type="hidden" name="identity_score" id="hIdScore">
+          <input type="hidden" name="attention_pct" id="hAttnPct">
+          <input type="hidden" name="identity_pct" id="hIdPct">
+          <input type="hidden" name="result_band" id="hBandRaw">
+          <input type="hidden" name="dominant_signals" id="hDominant">
+          <input type="hidden" name="full_answer_path" id="hPath">
+          <input type="hidden" name="_subject" id="hSubject" value="New PEM Strategy Finder Lead">
+
+          <button type="submit" class="btn btn-primary btn-large btn-full" id="submitLeadBtn">
+            <span>Build My Strategy</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <p class="form-note">We'll only use this to follow up about your strategy. No spam.</p>
+        </form>
+
+        <div class="lead-success" id="leadSuccess" hidden>
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" stroke="currentColor" stroke-width="1.5"/><path d="M7 12.5l3 3 7-7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <h3>Thanks &mdash; you're all set.</h3>
+          <p>Cameron will be in touch shortly to walk through your custom content mix.</p>
+        </div>
+      </div>
+
+      <button class="btn btn-ghost" id="restartBtn">Retake the diagnostic</button>
+    </div>
+  </section>
+
+</main>
+
+<footer class="app-footer">
+  <img src="assets/pem-icon-gold.png" alt="" class="footer-icon">
+  <span>Peak Exposure Media &mdash; V2 Diagnostic</span>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
