@@ -7,7 +7,7 @@
 /* --------------------------------------------------------------------------
    1. CONFIG
    -------------------------------------------------------------------------- */
-const FORM_ENDPOINT = "https://formspree.io/f/YOUR_FORM_ID"; // <-- replace before going live
+const FORM_ENDPOINT = "https://formspree.io/f/mdenypey"; // <-- replace before going live
 
 /* --------------------------------------------------------------------------
    2. QUESTION TREE + HIDDEN SCORING (spec section 2 & 3)
