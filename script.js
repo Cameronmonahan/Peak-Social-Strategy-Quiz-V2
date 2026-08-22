@@ -536,7 +536,7 @@ function finishQuiz(){
   // Stash everything the EmailJS template needs so the submit handler
   // doesn't have to recompute it.
   lastResult = {
-    band, dominantLabels, priorities, frequency, answerPath, completedAt
+    band, dominantLabels, priorities, frequency, answerPath, completedAt, explanation: lede
   };
 
   document.getElementById("hSummary").value = summary;
@@ -624,19 +624,18 @@ leadForm.addEventListener("submit", async (e) => {
       lead_phone: phone || "—",
       result_band: r.band.name,
       ratio_label: `${r.band.attn}% Attention / ${r.band.ident}% Identity`,
-      explanation: document.getElementById("resultLede").innerHTML,
-      signals_html: r.dominantLabels.length
-        ? r.dominantLabels.map(d => `<li>${d}</li>`).join("")
-        : "<li>No single signal dominated — answers were evenly split.</li>",
-      priorities_html: r.priorities.length ? r.priorities.join(" &nbsp;•&nbsp; ") : "—",
+      explanation: r.explanation,
+      // Plain text, not HTML — EmailJS escapes tags in variables, so any
+      // markup embedded here would show up as literal text (as it did in
+      // testing). The template instead renders these inside a container
+      // styled with `white-space:pre-line`, so plain "\n" line breaks and
+      // "•" bullet characters display correctly without needing real tags.
+      signals_text: r.dominantLabels.length
+        ? r.dominantLabels.map(d => `•  ${d}`).join("\n")
+        : "•  No single signal dominated — answers were evenly split.",
+      priorities_text: r.priorities.length ? r.priorities.join("   •   ") : "—",
       cadence_label: r.frequency.cadence,
-      answer_path_html: r.answerPath
-        .split("\n\n")
-        .map(block => {
-          const [q, a] = block.split("\n   → ");
-          return `<p style="margin:0 0 10px;">${q}<br><strong style="color:#E6D7B2;">→ ${a || ""}</strong></p>`;
-        })
-        .join(""),
+      answer_path_text: r.answerPath,
       completed_at: r.completedAt
     };
     tasks.push(emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, templateParams));
