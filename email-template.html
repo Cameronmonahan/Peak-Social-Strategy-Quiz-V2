@@ -1,0 +1,114 @@
+<!--
+  PEM V2 LEAD NOTIFICATION — EMAIL TEMPLATE
+  ==========================================
+  This is NOT a file your website loads — it's what you paste into EmailJS's
+  template editor (Code Editor / HTML view) when you set up your template.
+  See README.md, section "Styled email via EmailJS" for the full walkthrough.
+
+  Built table-based with inline styles on purpose — email clients (especially
+  Outlook) don't support modern CSS like flexbox/grid, so this uses the older,
+  more compatible approach to make sure it actually renders correctly.
+
+  The {{variable}} placeholders are filled in automatically by script.js each
+  time someone submits the lead form — don't rename them unless you also
+  update the matching names in script.js's `templateParams` object.
+-->
+<div style="background:#1B1F28;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#2D3340;border-radius:12px;overflow:hidden;">
+
+    <!-- Header / logo -->
+    <tr>
+      <td style="padding:28px 32px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.08);">
+        <img src="https://cameronmonahan.github.io/Peak-Social-Strategy-Quiz-V2/assets/pem-logo-gold.png" width="160" alt="Peak Exposure Media" style="display:block;margin:0 auto;border:0;">
+      </td>
+    </tr>
+
+    <!-- Lead name / company -->
+    <tr>
+      <td style="padding:28px 32px 8px;">
+        <p style="margin:0;color:#D4BC85;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">New Lead — V2</p>
+        <h1 style="margin:6px 0 0;color:#ffffff;font-size:24px;line-height:1.25;font-family:Arial,Helvetica,sans-serif;">{{lead_name}} &mdash; {{lead_company}}</h1>
+      </td>
+    </tr>
+
+    <!-- Contact info -->
+    <tr>
+      <td style="padding:8px 32px 24px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.04);border-radius:10px;">
+          <tr>
+            <td style="padding:16px 20px 0;color:#A6ACBB;font-size:13px;">Email</td>
+            <td style="padding:16px 20px 0;color:#ffffff;font-size:13px;text-align:right;">{{lead_email}}</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 20px 16px;color:#A6ACBB;font-size:13px;">Phone</td>
+            <td style="padding:8px 20px 16px;color:#ffffff;font-size:13px;text-align:right;">{{lead_phone}}</td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+
+    <!-- Result -->
+    <tr>
+      <td style="padding:0 32px 24px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#3A4152;border:1px solid rgba(212,188,133,0.35);border-radius:10px;">
+          <tr>
+            <td style="padding:22px;text-align:center;">
+              <p style="margin:0 0 4px;color:#9BA1AF;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;">Result</p>
+              <p style="margin:0 0 8px;color:#E6D7B2;font-size:24px;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">{{ratio_label}}</p>
+              <p style="margin:0;color:#A6ACBB;font-size:12.5px;letter-spacing:1px;text-transform:uppercase;">{{result_band}}</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+
+    <!-- Explanation -->
+    <tr>
+      <td style="padding:0 32px 24px;color:#D9DCE3;font-size:14px;line-height:1.7;">
+        {{explanation}}
+      </td>
+    </tr>
+
+    <!-- Why they landed here -->
+    <tr>
+      <td style="padding:0 32px 20px;">
+        <p style="margin:0 0 10px;color:#9BA1AF;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;">Why They Landed Here</p>
+        <ul style="margin:0;padding-left:18px;color:#D9DCE3;font-size:13px;line-height:1.9;">
+          {{signals_html}}
+        </ul>
+      </td>
+    </tr>
+
+    <!-- Top priorities -->
+    <tr>
+      <td style="padding:0 32px 20px;">
+        <p style="margin:0 0 8px;color:#9BA1AF;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;">Top Priorities</p>
+        <p style="margin:0;color:#E6D7B2;font-size:13.5px;font-weight:bold;">{{priorities_html}}</p>
+      </td>
+    </tr>
+
+    <!-- Posting frequency -->
+    <tr>
+      <td style="padding:0 32px 24px;">
+        <p style="margin:0 0 6px;color:#9BA1AF;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;">Recommended Posting Frequency</p>
+        <p style="margin:0;color:#ffffff;font-size:15px;font-weight:bold;">{{cadence_label}}</p>
+      </td>
+    </tr>
+
+    <!-- Full answer path -->
+    <tr>
+      <td style="padding:20px 32px 8px;border-top:1px solid rgba(255,255,255,0.08);">
+        <p style="margin:0 0 12px;color:#9BA1AF;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;">Full Answer Path</p>
+        <div style="color:#A6ACBB;font-size:12.5px;line-height:1.9;">{{answer_path_html}}</div>
+      </td>
+    </tr>
+
+    <!-- Footer -->
+    <tr>
+      <td style="padding:24px 32px 28px;border-top:1px solid rgba(255,255,255,0.08);text-align:center;">
+        <p style="margin:0;color:#7C8296;font-size:11px;">Completed {{completed_at}} &middot; Peak Exposure Media</p>
+      </td>
+    </tr>
+
+  </table>
+</div>

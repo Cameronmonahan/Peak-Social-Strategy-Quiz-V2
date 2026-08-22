@@ -9,6 +9,16 @@
    -------------------------------------------------------------------------- */
 const FORM_ENDPOINT = "https://formspree.io/f/mdenypey";
 
+// EmailJS powers the nicely-designed notification email (Formspree above
+// stays connected too, as a structured backup / dashboard). Sign up free at
+// emailjs.com and fill these in — see README.md "Styled email via EmailJS".
+const EMAILJS_PUBLIC_KEY = "YOUR_PUBLIC_KEY";
+const EMAILJS_SERVICE_ID = "YOUR_SERVICE_ID";
+const EMAILJS_TEMPLATE_ID = "YOUR_TEMPLATE_ID";
+if (window.emailjs && !EMAILJS_PUBLIC_KEY.includes("YOUR_")){
+  emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+}
+
 /* --------------------------------------------------------------------------
    2. QUESTION TREE + HIDDEN SCORING (spec section 2 & 3)
    Each option carries: attn/ident point deltas, a diagnostic tag, the
@@ -222,6 +232,7 @@ let attnScoreExclQ6 = 0, identScoreExclQ6 = 0;
 let sessionId = null;
 let startedAt = null;
 let completed = false;
+let lastResult = null; // populated by finishQuiz(), read by the submit handler
 const APPROX_TOTAL_STEPS = 6.5; // used only to animate the progress bar
 
 function makeSessionId(){
@@ -522,6 +533,12 @@ function finishQuiz(){
     `Completed: ${completedAt}`
   ].join("\n");
 
+  // Stash everything the EmailJS template needs so the submit handler
+  // doesn't have to recompute it.
+  lastResult = {
+    band, dominantLabels, priorities, frequency, answerPath, completedAt
+  };
+
   document.getElementById("hSummary").value = summary;
   document.getElementById("hBand").value = `${band.name} (${band.attn}/${band.ident})`;
   document.getElementById("hRatio").value = `${band.attn}% Attention / ${band.ident}% Identity`;
@@ -565,34 +582,75 @@ leadForm.addEventListener("submit", async (e) => {
   // Build a scannable subject line now that we know who this is.
   const name = leadForm.querySelector('[name="lead_name"]').value.trim();
   const company = leadForm.querySelector('[name="lead_company"]').value.trim();
+  const email = leadForm.querySelector('[name="lead_email"]').value.trim();
+  const phone = leadForm.querySelector('[name="lead_phone"]').value.trim();
   const bandLabel = document.getElementById("hBandRaw").value;
   document.getElementById("hSubject").value =
     `New Lead: ${bandLabel} — ${company || name || "PEM Strategy Finder"}`;
-
-  if (FORM_ENDPOINT.includes("YOUR_FORM_ID")){
-    alert("Heads up: the lead form isn't connected yet. Set FORM_ENDPOINT in script.js — see README.md for setup steps.");
-    return;
-  }
 
   const originalText = submitLeadBtn.innerHTML;
   submitLeadBtn.disabled = true;
   submitLeadBtn.innerHTML = "<span>Sending…</span>";
 
-  try{
-    const res = await fetch(FORM_ENDPOINT, {
-      method: "POST",
-      headers: { "Accept": "application/json" },
-      body: new FormData(leadForm)
-    });
+  const emailjsReady = window.emailjs && !EMAILJS_PUBLIC_KEY.includes("YOUR_")
+    && !EMAILJS_SERVICE_ID.includes("YOUR_") && !EMAILJS_TEMPLATE_ID.includes("YOUR_");
+  const formspreeReady = !FORM_ENDPOINT.includes("YOUR_FORM_ID");
 
-    if (res.ok){
-      trackEvent("lead_submitted", { session_id: sessionId });
-      leadForm.hidden = true;
-      document.getElementById("leadSuccess").hidden = false;
-    } else {
-      throw new Error("Submission failed");
-    }
-  } catch (err){
+  if (!emailjsReady && !formspreeReady){
+    alert("Heads up: the lead form isn't connected yet. Set FORM_ENDPOINT and/or the EMAILJS_* constants in script.js — see README.md for setup steps.");
+    submitLeadBtn.disabled = false;
+    submitLeadBtn.innerHTML = originalText;
+    return;
+  }
+
+  const tasks = [];
+
+  if (formspreeReady){
+    tasks.push(
+      fetch(FORM_ENDPOINT, {
+        method: "POST",
+        headers: { "Accept": "application/json" },
+        body: new FormData(leadForm)
+      }).then(res => { if (!res.ok) throw new Error("Formspree submission failed"); })
+    );
+  }
+
+  if (emailjsReady && lastResult){
+    const r = lastResult;
+    const templateParams = {
+      lead_name: name,
+      lead_company: company,
+      lead_email: email,
+      lead_phone: phone || "—",
+      result_band: r.band.name,
+      ratio_label: `${r.band.attn}% Attention / ${r.band.ident}% Identity`,
+      explanation: document.getElementById("resultLede").innerHTML,
+      signals_html: r.dominantLabels.length
+        ? r.dominantLabels.map(d => `<li>${d}</li>`).join("")
+        : "<li>No single signal dominated — answers were evenly split.</li>",
+      priorities_html: r.priorities.length ? r.priorities.join(" &nbsp;•&nbsp; ") : "—",
+      cadence_label: r.frequency.cadence,
+      answer_path_html: r.answerPath
+        .split("\n\n")
+        .map(block => {
+          const [q, a] = block.split("\n   → ");
+          return `<p style="margin:0 0 10px;">${q}<br><strong style="color:#E6D7B2;">→ ${a || ""}</strong></p>`;
+        })
+        .join(""),
+      completed_at: r.completedAt
+    };
+    tasks.push(emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, templateParams));
+  }
+
+  const results = await Promise.allSettled(tasks);
+  const anySuccess = results.some(r => r.status === "fulfilled");
+  results.forEach(r => { if (r.status === "rejected") console.warn("[PEM lead delivery] one channel failed:", r.reason); });
+
+  if (anySuccess){
+    trackEvent("lead_submitted", { session_id: sessionId });
+    leadForm.hidden = true;
+    document.getElementById("leadSuccess").hidden = false;
+  } else {
     alert("Something went wrong sending your details. Please try again, or email Cameron@peakexposuremedia.com directly.");
     submitLeadBtn.disabled = false;
     submitLeadBtn.innerHTML = originalText;
