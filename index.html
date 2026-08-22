@@ -121,6 +121,14 @@
           </div>
         </div>
         <p class="mix-note">Production level isn't the strategy &mdash; Attention earns visibility and relevance, Identity shapes meaning and perception. Both matter; the mix above reflects where your business needs the emphasis right now.</p>
+
+        <div class="cadence-block">
+          <p class="section-label">Recommended Posting Frequency</p>
+          <div class="cadence-card">
+            <p class="cadence-value" id="cadenceValue">Daily</p>
+            <p class="cadence-note" id="cadenceNote"></p>
+          </div>
+        </div>
       </div>
 
       <!-- 7. CTA / lead capture -->
@@ -139,12 +147,31 @@
               <input type="text" name="lead_company" required autocomplete="organization">
             </label>
           </div>
-          <label class="field">
-            <span>Email</span>
-            <input type="email" name="lead_email" required autocomplete="email">
-          </label>
+          <div class="field-row">
+            <label class="field">
+              <span>Email</span>
+              <input type="email" name="lead_email" required autocomplete="email">
+            </label>
+            <label class="field">
+              <span>Phone <em>(optional)</em></span>
+              <input type="tel" name="lead_phone" autocomplete="tel">
+            </label>
+          </div>
 
-          <!-- Hidden CRM payload — see spec section 7 "Suggested fields" -->
+          <!-- Clean, human-readable digest — this is what actually shows up
+               nicely in the email. Placed first so it's the top of the
+               message body. -->
+          <input type="hidden" name="Lead Summary" id="hSummary">
+
+          <!-- Compact, quick-scan fields — kept short so the email stays
+               readable, but still useful for sorting/filtering leads. -->
+          <input type="hidden" name="Result" id="hBand">
+          <input type="hidden" name="Attention / Identity" id="hRatio">
+
+          <!-- Full structured CRM payload — see spec section 7 "Suggested
+               fields." Kept for Zapier/CRM automation later; collapsed out
+               of the way of the readable summary above. Delete this block
+               if you never plan to pipe leads into an external tool. -->
           <input type="hidden" name="session_id" id="hSessionId">
           <input type="hidden" name="started_at" id="hStartedAt">
           <input type="hidden" name="completed_at" id="hCompletedAt">
@@ -160,10 +187,10 @@
           <input type="hidden" name="identity_score" id="hIdScore">
           <input type="hidden" name="attention_pct" id="hAttnPct">
           <input type="hidden" name="identity_pct" id="hIdPct">
-          <input type="hidden" name="result_band" id="hBand">
+          <input type="hidden" name="result_band" id="hBandRaw">
           <input type="hidden" name="dominant_signals" id="hDominant">
           <input type="hidden" name="full_answer_path" id="hPath">
-          <input type="hidden" name="_subject" value="New Attention–Identity lead (V2)">
+          <input type="hidden" name="_subject" id="hSubject" value="New PEM Strategy Finder Lead">
 
           <button type="submit" class="btn btn-primary btn-large btn-full" id="submitLeadBtn">
             <span>Build My Strategy</span>
