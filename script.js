@@ -12,9 +12,9 @@ const FORM_ENDPOINT = "https://formspree.io/f/mdenypey";
 // EmailJS powers the nicely-designed notification email (Formspree above
 // stays connected too, as a structured backup / dashboard). Sign up free at
 // emailjs.com and fill these in — see README.md "Styled email via EmailJS".
-const EMAILJS_PUBLIC_KEY = "YOUR_PUBLIC_KEY";
-const EMAILJS_SERVICE_ID = "YOUR_SERVICE_ID";
-const EMAILJS_TEMPLATE_ID = "YOUR_TEMPLATE_ID";
+const EMAILJS_PUBLIC_KEY = "3sbJA_etCWggkN4XG";
+const EMAILJS_SERVICE_ID = "service_u9pnot6";
+const EMAILJS_TEMPLATE_ID = "template_yupjtqh";
 if (window.emailjs && !EMAILJS_PUBLIC_KEY.includes("YOUR_")){
   emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
 }
