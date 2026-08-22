@@ -7,7 +7,7 @@
 /* --------------------------------------------------------------------------
    1. CONFIG
    -------------------------------------------------------------------------- */
-const FORM_ENDPOINT = "https://formspree.io/f/mdenypey"; // <-- replace before going live
+const FORM_ENDPOINT = "https://formspree.io/f/mdenypey";
 
 /* --------------------------------------------------------------------------
    2. QUESTION TREE + HIDDEN SCORING (spec section 2 & 3)
@@ -119,6 +119,35 @@ const BANDS = [
     attn: 20, ident: 80, name: "Identity Heavy",
     summary: "Protecting and elevating brand perception matters more than maximizing volume.",
     base: "Your social presence functions as an extension of the product or experience itself. For a business at your stage, how people perceive the brand matters more than how many people see any single post."
+  }
+];
+
+/* --------------------------------------------------------------------------
+   3b. RECOMMENDED POSTING FREQUENCY — keyed to the same 5 bands, since the
+   band already reflects the hidden score. More Attention weight generally
+   supports higher frequency (native, fast content compounds); more Identity
+   weight favors fewer, higher-intent pieces over raw volume.
+   -------------------------------------------------------------------------- */
+const POSTING_FREQUENCY = [
+  {
+    cadence: "Daily — ideally 1–2x per day",
+    note: "At an 80/20 mix, frequency is doing most of the work. Treat daily (or twice-daily) posting as the floor, not the ceiling — momentum compounds fast in an Attention-led strategy, and gaps cost you visibility quickly."
+  },
+  {
+    cadence: "5–6x per week (near-daily)",
+    note: "A 60/40 mix still needs frequent, social-native content to stay visible, with a bit more room to slot in the occasional brand-building piece without falling off the radar."
+  },
+  {
+    cadence: "4–5x per week, across two content types",
+    note: "At 50/50, run two cadences at once: post fast, native Attention content 3–4x a week, and layer in 1–2 more intentional Identity pieces on top. Don't let one type crowd out the other."
+  },
+  {
+    cadence: "3–4x per week",
+    note: "With a 40/60 mix, fewer, more deliberate posts serve you better than daily volume. Protect the time it takes for each piece to communicate who you are — consistency matters more than raw frequency here."
+  },
+  {
+    cadence: "1–3x per week, prioritizing quality over frequency",
+    note: "At 20/80, posting less — but better — is the strategy, not a compromise. Each piece is doing brand work; publishing before it's ready costs you more than posting less often."
   }
 ];
 
@@ -456,12 +485,46 @@ function finishQuiz(){
   attnCount.forEach(item => { const li = document.createElement("li"); li.textContent = item; attnList.appendChild(li); });
   identCount.forEach(item => { const li = document.createElement("li"); li.textContent = item; identList.appendChild(li); });
 
-  // ---- 7: CTA / hidden CRM payload (spec section 7 suggested fields) ----
+  // ---- posting frequency, keyed to the same band ----
+  const frequency = POSTING_FREQUENCY[finalBand];
+  document.getElementById("cadenceValue").textContent = frequency.cadence;
+  document.getElementById("cadenceNote").textContent = frequency.note;
+
+  // ---- 7: CTA / lead payload ----
   const byQid = id => history.find(h => h.qid === id);
   const q1 = byQid("q1"), q2a = byQid("q2a"), q2b = byQid("q2b"), q2c = byQid("q2c"),
         q3 = byQid("q3"), q4 = byQid("q4"), q5 = byQid("q5"), q6 = byQid("q6");
   const q2Variant = q2a ? "q2a" : (q2b ? "q2b" : "");
   const q2Answer = q2a ? q2a.option.id : (q2b ? q2b.option.id : "");
+  const dominantLabels = dominant.slice(0, 3).map(d => TAG_COPY[d.tag] || d.tag);
+  const answerPath = history
+    .map((h, i) => `${i + 1}. ${QUESTIONS[h.qid].prompt}\n   → ${h.option.text}`)
+    .join("\n\n");
+
+  // Human-readable digest — this is what makes the email easy to scan.
+  const summary = [
+    `RESULT: ${band.attn}% Attention / ${band.ident}% Identity  (${band.name})`,
+    ``,
+    `WHY THEY LANDED HERE`,
+    dominantLabels.length ? dominantLabels.map(d => `• ${d}`).join("\n") : "• No single signal dominated — answers were evenly split.",
+    ``,
+    `TOP PRIORITIES`,
+    priorities.length ? priorities.map(p => `• ${p}`).join("\n") : "• N/A",
+    ``,
+    `RECOMMENDED POSTING FREQUENCY`,
+    `${frequency.cadence}`,
+    ``,
+    `FULL ANSWER PATH`,
+    answerPath,
+    ``,
+    `Session: ${sessionId}`,
+    `Started:   ${startedAt}`,
+    `Completed: ${completedAt}`
+  ].join("\n");
+
+  document.getElementById("hSummary").value = summary;
+  document.getElementById("hBand").value = `${band.name} (${band.attn}/${band.ident})`;
+  document.getElementById("hRatio").value = `${band.attn}% Attention / ${band.ident}% Identity`;
 
   document.getElementById("hSessionId").value = sessionId;
   document.getElementById("hStartedAt").value = startedAt;
@@ -478,11 +541,9 @@ function finishQuiz(){
   document.getElementById("hIdScore").value = identScore;
   document.getElementById("hAttnPct").value = band.attn;
   document.getElementById("hIdPct").value = band.ident;
-  document.getElementById("hBand").value = band.name;
+  document.getElementById("hBandRaw").value = band.name;
   document.getElementById("hDominant").value = dominant.slice(0, 3).map(d => d.tag).join(", ");
-  document.getElementById("hPath").value = history
-    .map(h => `Q: ${QUESTIONS[h.qid].prompt} | A: ${h.option.text}`)
-    .join("\n");
+  document.getElementById("hPath").value = answerPath;
 
   document.getElementById("leadForm").hidden = false;
   document.getElementById("leadSuccess").hidden = true;
@@ -500,6 +561,13 @@ const submitLeadBtn = document.getElementById("submitLeadBtn");
 leadForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   trackEvent("cta_click", { session_id: sessionId });
+
+  // Build a scannable subject line now that we know who this is.
+  const name = leadForm.querySelector('[name="lead_name"]').value.trim();
+  const company = leadForm.querySelector('[name="lead_company"]').value.trim();
+  const bandLabel = document.getElementById("hBandRaw").value;
+  document.getElementById("hSubject").value =
+    `New Lead: ${bandLabel} — ${company || name || "PEM Strategy Finder"}`;
 
   if (FORM_ENDPOINT.includes("YOUR_FORM_ID")){
     alert("Heads up: the lead form isn't connected yet. Set FORM_ENDPOINT in script.js — see README.md for setup steps.");
