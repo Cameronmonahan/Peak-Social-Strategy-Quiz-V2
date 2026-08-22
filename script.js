@@ -1,680 +1,677 @@
 /* ==========================================================================
    Peak Exposure Media — Attention/Identity Strategy Finder (V2)
-   Diagnostic-model variant. Same brand palette as V1, distinct UI treatment
-   built around the four-signal (Awareness/Relevance/Perception/Maturity)
-   framing from the V2 spec.
+   Diagnostic model: hidden scoring, adaptive branching, guardrails.
+   Built from "Peak Exposure Questionnaire V2 — Developer Spec".
    ========================================================================== */
 
-:root{
-  --navy-deep:   #1B1F28;
-  --navy:        #2D3340;
-  --navy-soft:   #3A4152;
-  --navy-line:   rgba(255,255,255,0.10);
-  --gold:        #D4BC85;
-  --gold-light:  #E6D7B2;
-  --gold-dim:    rgba(212,188,133,0.14);
-  --white:       #FFFFFF;
-  --ink:         #20242E;
-  --muted:       #A6ACBB;
-  --muted-2:     #7C8296;
-  --signal-off:  rgba(255,255,255,0.14);
+/* --------------------------------------------------------------------------
+   1. CONFIG
+   -------------------------------------------------------------------------- */
+const FORM_ENDPOINT = "https://formspree.io/f/mdenypey";
 
-  --font-display: 'Bebas Neue', sans-serif;
-  --font-body: 'Montserrat', sans-serif;
-
-  --radius-lg: 20px;
-  --radius-md: 14px;
-  --radius-sm: 10px;
-  --ease: cubic-bezier(.22,.9,.32,1);
+// EmailJS powers the nicely-designed notification email (Formspree above
+// stays connected too, as a structured backup / dashboard). Sign up free at
+// emailjs.com and fill these in — see README.md "Styled email via EmailJS".
+const EMAILJS_PUBLIC_KEY = "3sbJA_etCWggkN4XG";
+const EMAILJS_SERVICE_ID = "service_u9pnot6";
+const EMAILJS_TEMPLATE_ID = "template_yupjtqh";
+if (window.emailjs && !EMAILJS_PUBLIC_KEY.includes("YOUR_")){
+  emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
 }
 
-*{box-sizing:border-box;}
-html,body{margin:0;padding:0;}
+/* --------------------------------------------------------------------------
+   2. QUESTION TREE + HIDDEN SCORING (spec section 2 & 3)
+   Each option carries: attn/ident point deltas, a diagnostic tag, the
+   four-signal category it belongs to, and a strategic-priority label used
+   to build the "Top 3 priorities" on the result page.
+   -------------------------------------------------------------------------- */
+const QUESTIONS = {
+  q1: {
+    signal: "awareness",
+    prompt: "If social media could solve one problem for your business right now, which would be more valuable?",
+    options: [
+      { id: "A", text: "More of the right people discovering us.", next: "q2a", attn: 3, ident: 0, tag: "awareness_pressure", priority: "Increase Discovery" },
+      { id: "B", text: "People understanding why we're different and worth choosing.", next: "q2b", attn: 0, ident: 3, tag: "perception_pressure", priority: "Improve Perception" }
+    ]
+  },
+  q2a: {
+    signal: "awareness",
+    prompt: "If twice as many of the right people discovered your business next month, what would happen?",
+    options: [
+      { id: "A", text: "It would directly create more opportunities, customers, leads, or growth.", next: "q3", attn: 3, ident: 0, tag: "discovery_helps", priority: "Increase Discovery" },
+      { id: "B", text: "We'd still need to improve how people understand or perceive us before extra reach mattered.", next: "q2c", attn: 0, ident: 2, tag: "perception_first", priority: "Improve Perception" }
+    ]
+  },
+  q2b: {
+    signal: "perception",
+    prompt: "When an ideal customer chooses a competitor instead of you, which explanation feels more accurate?",
+    options: [
+      { id: "A", text: "They were simply more visible or top-of-mind at the right time.", next: "q3", attn: 2, ident: 0, tag: "competitor_visible", priority: "Increase Discovery" },
+      { id: "B", text: "The competitor felt more trusted, established, premium, or clearly differentiated.", next: "q3", attn: 0, ident: 3, tag: "competitor_trusted", priority: "Differentiate" }
+    ]
+  },
+  q2c: {
+    signal: "perception",
+    prompt: "What is the bigger issue once someone finds your business?",
+    options: [
+      { id: "A", text: "They usually understand the value — we mainly need more opportunities to get in front of people.", next: "q3", attn: 2, ident: 0, tag: "need_opportunities", priority: "Increase Discovery" },
+      { id: "B", text: "Our marketing doesn't fully communicate our quality, story, value, or difference.", next: "q3", attn: 0, ident: 3, tag: "marketing_undersells", priority: "Improve Perception" }
+    ]
+  },
+  q3: {
+    signal: "relevance",
+    prompt: "If your business stopped posting and showing up socially for three months, what would concern you more?",
+    options: [
+      { id: "A", text: "We'd lose momentum, attention, engagement, or top-of-mind awareness.", next: "q4", attn: 3, ident: 0, tag: "relevance_high", priority: "Stay Relevant" },
+      { id: "B", text: "It wouldn't hurt daily relevance much, but we'd lose an important way to represent our brand.", next: "q4", attn: 0, ident: 2, tag: "relevance_low_identity", priority: "Build Brand Recognition" }
+    ]
+  },
+  q4: {
+    signal: "maturity",
+    prompt: "Which statement best describes your business today?",
+    options: [
+      { id: "A", text: "We are still building awareness, reputation, market share, or a recognizable name.", next: "q5", attn: 2, ident: 0, tag: "still_building", priority: "Build Brand Recognition" },
+      { id: "B", text: "We are established and recognized; our bigger challenge is strengthening or protecting what the brand means.", next: "q5", attn: 0, ident: 2, tag: "established_protect", priority: "Protect Premium Positioning" }
+    ]
+  },
+  q5: {
+    signal: "purchase",
+    prompt: "What matters more in the customer's decision to choose you?",
+    options: [
+      { id: "A", text: "Being visible, useful, relevant, and easy to remember when they need us.", next: "q6", attn: 2, ident: 0, tag: "visibility_drives_choice", priority: "Stay Relevant" },
+      { id: "B", text: "Trusting our specific brand, believing in our quality, or wanting to identify with what we represent.", next: "q6", attn: 0, ident: 2, tag: "trust_drives_choice", priority: "Build Trust" }
+    ]
+  },
+  q6: {
+    signal: "calibration",
+    prompt: "Assume both videos reach real potential customers. Which outcome would be more valuable?",
+    options: [
+      {
+        id: "A", text: "A casual, social-native video reaches 500,000 people and creates conversation.", next: "RESULT",
+        attn: 1, ident: 0, tag: "native_reach_pref", priority: "Increase Discovery",
+        stats: ["500,000 people reached", "Casual, social-native format", "Sparks conversation and shares"]
+      },
+      {
+        id: "B", text: "A highly intentional story reaches 50,000 people but makes ideal customers strongly prefer our brand.", next: "RESULT",
+        attn: 0, ident: 1, tag: "story_preference", priority: "Differentiate",
+        stats: ["50,000 people reached", "Highly intentional, story-driven", "Builds strong brand preference"]
+      }
+    ]
+  }
+};
 
-/* Guards against any class-based `display` rule silently overriding the
-   native `hidden` attribute (a common CSS gotcha — e.g. `.lead-form{
-   display:flex }` would otherwise beat the browser's default `[hidden]{
-   display:none }` and the element stays visible even when JS sets
-   `.hidden = true`). */
-[hidden]{ display: none !important; }
+/* --------------------------------------------------------------------------
+   3. RESULT BANDS (spec section 4)
+   Band index 0 = most Attention-heavy … 4 = most Identity-heavy.
+   -------------------------------------------------------------------------- */
+const BANDS = [
+  {
+    attn: 80, ident: 20, name: "Attention Heavy",
+    summary: "Discovery, reach, frequency, relevance, and top-of-mind presence dominate.",
+    base: "Right now, getting seen matters more than almost anything else. Your biggest opportunity is consistent discovery — more of the right people finding you, staying aware of you, and thinking of you first."
+  },
+  {
+    attn: 60, ident: 40, name: "Attention Led",
+    summary: "Growth and relevance lead, while brand-building reinforces trust and differentiation.",
+    base: "Your brand still has meaningful growth and awareness opportunities, and staying visible is important to the way customers choose you. At the same time, perception matters enough that reach alone is not the goal. Use frequent, social-native content to earn attention while consistently reinforcing the quality and personality of your brand."
+  },
+  {
+    attn: 50, ident: 50, name: "Hybrid",
+    summary: "Discovery/relevance and perception are both meaningful constraints.",
+    base: "Your business has two real jobs on social media right now: get discovered, and become memorable once you are. Neither can carry the strategy on its own — you need a content engine built for reach running alongside one built for meaning."
+  },
+  {
+    attn: 40, ident: 60, name: "Identity Led",
+    summary: "Awareness exists, but differentiation, trust, perception, or premium positioning are the larger opportunity.",
+    base: "Awareness isn't your core problem — people generally find you. The bigger opportunity is making sure they understand exactly who you are, what you represent, and why you're worth choosing over the alternative sitting right next to you."
+  },
+  {
+    attn: 20, ident: 80, name: "Identity Heavy",
+    summary: "Protecting and elevating brand perception matters more than maximizing volume.",
+    base: "Your social presence functions as an extension of the product or experience itself. For a business at your stage, how people perceive the brand matters more than how many people see any single post."
+  }
+];
 
-body{
-  background: var(--navy-deep);
-  color: var(--white);
-  font-family: var(--font-body);
-  font-weight: 400;
-  -webkit-font-smoothing: antialiased;
-  min-height: 100vh;
-  overflow-x: hidden;
-}
+/* --------------------------------------------------------------------------
+   3b. RECOMMENDED POSTING FREQUENCY — keyed to the same 5 bands, since the
+   band already reflects the hidden score. More Attention weight generally
+   supports higher frequency (native, fast content compounds); more Identity
+   weight favors fewer, higher-intent pieces over raw volume.
+   -------------------------------------------------------------------------- */
+const POSTING_FREQUENCY = [
+  {
+    cadence: "Daily — ideally 1–2x per day",
+    note: "At an 80/20 mix, frequency is doing most of the work. Treat daily (or twice-daily) posting as the floor, not the ceiling — momentum compounds fast in an Attention-led strategy, and gaps cost you visibility quickly."
+  },
+  {
+    cadence: "5–6x per week (near-daily)",
+    note: "A 60/40 mix still needs frequent, social-native content to stay visible, with a bit more room to slot in the occasional brand-building piece without falling off the radar."
+  },
+  {
+    cadence: "4–5x per week, across two content types",
+    note: "At 50/50, run two cadences at once: post fast, native Attention content 3–4x a week, and layer in 1–2 more intentional Identity pieces on top. Don't let one type crowd out the other."
+  },
+  {
+    cadence: "3–4x per week",
+    note: "With a 40/60 mix, fewer, more deliberate posts serve you better than daily volume. Protect the time it takes for each piece to communicate who you are — consistency matters more than raw frequency here."
+  },
+  {
+    cadence: "1–3x per week, prioritizing quality over frequency",
+    note: "At 20/80, posting less — but better — is the strategy, not a compromise. Each piece is doing brand work; publishing before it's ready costs you more than posting less often."
+  }
+];
 
-::selection{ background: var(--gold); color: var(--navy-deep); }
+/* --------------------------------------------------------------------------
+   4. TAG → PERSONALIZATION COPY
+   Used to build the one dynamic sentence added to each result's explanation.
+   Calibration (q6) tags are intentionally excluded from "dominant signal"
+   selection — per the spec, calibration should never override diagnosis.
+   -------------------------------------------------------------------------- */
+const TAG_COPY = {
+  awareness_pressure: "not enough of the right people know you exist yet",
+  perception_pressure: "people don't yet understand why you're different",
+  discovery_helps: "more reach would translate directly into growth",
+  perception_first: "reach alone wouldn't fix how you're currently perceived",
+  competitor_visible: "visibility is often the deciding factor against competitors",
+  competitor_trusted: "trust and differentiation are what separate you from competitors",
+  need_opportunities: "you mainly need more chances to get in front of people",
+  marketing_undersells: "your marketing isn't fully communicating your value",
+  relevance_high: "staying visible and top-of-mind is critical to your momentum",
+  relevance_low_identity: "your bigger risk is losing brand representation, not daily relevance",
+  still_building: "you're still building awareness and a recognizable name",
+  established_protect: "your challenge now is protecting and strengthening what your brand means",
+  visibility_drives_choice: "customers choose you largely because you're visible and easy to remember",
+  trust_drives_choice: "customers choose you because they trust and identify with your brand"
+};
 
-:focus-visible{
-  outline: 2px solid var(--gold);
-  outline-offset: 3px;
-  border-radius: 4px;
-}
+/* --------------------------------------------------------------------------
+   5. CONTENT LIBRARY (spec section 6)
+   Ordered so proportional selection surfaces the most versatile items first.
+   -------------------------------------------------------------------------- */
+const ATTENTION_CONTENT = [
+  "Social-native short-form video",
+  "High-frequency posting",
+  "Trends and cultural moments",
+  "Quick education / tips",
+  "Behind the scenes",
+  "Humor and personality",
+  "Timely reactions",
+  "Community interaction",
+  "iPhone / lo-fi content"
+];
+const IDENTITY_CONTENT = [
+  "Brand stories",
+  "Cinematic video",
+  "Founder / customer / athlete stories",
+  "Professional photography",
+  "Narrative testimonials",
+  "Lifestyle and culture",
+  "Documentary-style pieces",
+  "Craftsmanship / process",
+  "Evergreen hero assets"
+];
 
-/* Diagnostic scan-line motif — distinct signature from V1's mountain horizon.
-   A slow gold scan line + soft radial glow behind the logo, echoing the
-   circular lens shape of the brand icon rather than the peak silhouette. */
-.scan-bg{
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(circle 640px at 50% 6%, rgba(212,188,133,0.10), transparent 65%),
-    radial-gradient(circle 900px at 100% 100%, rgba(212,188,133,0.05), transparent 60%);
-}
-.scan-bg::after{
-  content:"";
-  position:absolute;
-  left:0; right:0;
-  top:0;
-  height:2px;
-  background: linear-gradient(90deg, transparent, var(--gold), transparent);
-  opacity: 0.55;
-  animation: scanline 7s linear infinite;
-}
-@keyframes scanline{
-  0%{ top: -2%; opacity: 0; }
-  8%{ opacity: 0.55; }
-  50%{ opacity: 0.35; }
-  92%{ opacity: 0.55; }
-  100%{ top: 100%; opacity: 0; }
-}
-@media (prefers-reduced-motion: reduce){
-  .scan-bg::after{ animation: none; display: none; }
-}
-
-/* ==========================================================================
-   Layout shell
-   ========================================================================== */
-
-.app{
-  position: relative;
-  z-index: 1;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 28px 20px 80px;
-}
-
-.app-header{
-  width: 100%;
-  max-width: 640px;
-  display: flex;
-  justify-content: center;
-  margin-bottom: 6px;
-}
-.header-logo{
-  height: 30px;
-  width: auto;
-  opacity: 0.95;
-}
-
-.app-footer{
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 22px 20px 30px;
-  color: var(--muted-2);
-  font-size: 12px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-.footer-icon{ height: 16px; width: auto; opacity: 0.7; }
-
-/* ---------------- Signal tracker + progress ---------------- */
-.tracker-wrap{
-  width: 100%;
-  max-width: 460px;
-  margin: 10px auto 4px;
-}
-.signal-tracker{
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
-}
-.signal-chip{
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted-2);
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--navy-line);
-  border-radius: 999px;
-  padding: 6px 12px;
-  transition: color 0.35s var(--ease), border-color 0.35s var(--ease), background 0.35s var(--ease);
-}
-.signal-dot{
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--signal-off);
-  transition: background 0.35s var(--ease), box-shadow 0.35s var(--ease);
-}
-.signal-chip.is-active{
-  color: var(--gold-light);
-  border-color: rgba(212,188,133,0.4);
-  background: var(--gold-dim);
-}
-.signal-chip.is-active .signal-dot{
-  background: var(--gold);
-  box-shadow: 0 0 8px rgba(212,188,133,0.7);
-}
-
-.progress-track{
-  height: 4px;
-  border-radius: 4px;
-  background: rgba(255,255,255,0.08);
-  overflow: hidden;
-}
-.progress-fill{
-  height: 100%;
-  width: 12%;
-  background: linear-gradient(90deg, var(--gold), var(--gold-light));
-  border-radius: 4px;
-  transition: width 0.5s var(--ease);
-}
-
-/* ==========================================================================
-   Screens
-   ========================================================================== */
-
-.screen{
-  width: 100%;
-  max-width: 640px;
-  flex: 1;
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 26px 0;
-}
-.screen[data-active="true"]{
-  display: flex;
-  animation: screenIn 0.5s var(--ease);
-}
-@keyframes screenIn{
-  from{ opacity: 0; transform: translateY(14px); }
-  to{ opacity: 1; transform: translateY(0); }
-}
-
-.eyebrow{
-  font-family: var(--font-body);
-  font-weight: 700;
-  font-size: 11px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--gold);
-  margin: 0 0 14px;
-}
-
-/* ---------------- Intro ---------------- */
-.intro-screen{ min-height: 60vh; }
-.intro-inner{ max-width: 560px; }
-
-.intro-title{
-  font-family: var(--font-display);
-  font-weight: 400;
-  font-size: clamp(34px, 6vw, 52px);
-  line-height: 1.06;
-  letter-spacing: 0.01em;
-  margin: 0 0 20px;
-  color: var(--white);
+/* --------------------------------------------------------------------------
+   6. ANALYTICS (spec section 7 — start, answer, abandonment, completion,
+   result, CTA click, lead submission). Pushes to window.dataLayer if a
+   tag manager is present; always logs to console for local visibility.
+   -------------------------------------------------------------------------- */
+function trackEvent(name, data = {}){
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({ event: name, ...data });
+  console.debug("[PEM V2 event]", name, data);
 }
 
-.intro-sub{
-  font-size: 16px;
-  line-height: 1.65;
-  color: var(--muted);
-  max-width: 480px;
-  margin: 0 auto 34px;
-}
-.intro-sub strong{ color: var(--gold-light); font-weight: 600; }
+/* --------------------------------------------------------------------------
+   7. STATE
+   -------------------------------------------------------------------------- */
+let history = [];        // stack of { qid, option } for back-navigation
+let currentQid = "q1";
+let attnScore = 0, identScore = 0;
+let attnScoreExclQ6 = 0, identScoreExclQ6 = 0;
+let sessionId = null;
+let startedAt = null;
+let completed = false;
+let lastResult = null; // populated by finishQuiz(), read by the submit handler
+const APPROX_TOTAL_STEPS = 6.5; // used only to animate the progress bar
 
-.intro-meta{
-  margin-top: 18px;
-  font-size: 12.5px;
-  color: var(--muted-2);
-  letter-spacing: 0.02em;
-}
-
-/* ---------------- Buttons ---------------- */
-.btn{
-  font-family: var(--font-body);
-  font-weight: 700;
-  font-size: 15px;
-  letter-spacing: 0.03em;
-  border: none;
-  cursor: pointer;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease), background 0.2s var(--ease), opacity 0.2s var(--ease);
-}
-.btn-primary{
-  background: linear-gradient(135deg, var(--gold-light), var(--gold));
-  color: var(--navy-deep);
-  padding: 16px 30px;
-  box-shadow: 0 10px 30px rgba(212,188,133,0.18);
-}
-.btn-primary:hover{ transform: translateY(-2px); box-shadow: 0 14px 36px rgba(212,188,133,0.28); }
-.btn-primary:active{ transform: translateY(0); }
-.btn-primary:disabled{ opacity: 0.55; cursor: not-allowed; transform:none; }
-.btn-large{ font-size: 15.5px; }
-.btn-full{ width: 100%; }
-
-.btn-ghost{
-  background: transparent;
-  color: var(--muted);
-  padding: 10px 18px;
-  font-weight: 600;
-  font-size: 13px;
-  margin-top: 26px;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  text-decoration-color: rgba(255,255,255,0.25);
-}
-.btn-ghost:hover{ color: var(--gold-light); }
-
-.back-link{
-  align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: none;
-  border: none;
-  color: var(--muted-2);
-  font-family: var(--font-body);
-  font-weight: 600;
-  font-size: 13px;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  padding: 6px 4px;
-  margin-bottom: 6px;
-  transition: color 0.2s;
-}
-.back-link:hover{ color: var(--gold-light); }
-
-/* ---------------- Question ---------------- */
-.question-screen{ min-height: 58vh; align-items: stretch; }
-.question-inner{ width: 100%; }
-
-.question-title{
-  font-family: var(--font-display);
-  font-weight: 400;
-  font-size: clamp(25px, 4.4vw, 36px);
-  line-height: 1.16;
-  margin: 0 0 30px;
-  color: var(--white);
+function makeSessionId(){
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return "sess_" + Date.now() + "_" + Math.random().toString(36).slice(2, 10);
 }
 
-.options-grid{
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-@media (max-width: 560px){
-  .options-grid{ grid-template-columns: 1fr; }
+/* --------------------------------------------------------------------------
+   8. DOM REFS
+   -------------------------------------------------------------------------- */
+const screens = {
+  intro: document.getElementById("screen-intro"),
+  question: document.getElementById("screen-question"),
+  result: document.getElementById("screen-result")
+};
+const trackerWrap = document.getElementById("trackerWrap");
+const progressFill = document.getElementById("progressFill");
+const questionTitle = document.getElementById("questionTitle");
+const questionEyebrow = document.getElementById("questionEyebrow");
+const optionsGrid = document.getElementById("optionsGrid");
+const backBtn = document.getElementById("backBtn");
+const signalChips = Array.from(document.querySelectorAll(".signal-chip"));
+
+/* --------------------------------------------------------------------------
+   9. NAVIGATION
+   -------------------------------------------------------------------------- */
+function showScreen(name){
+  Object.values(screens).forEach(s => s.removeAttribute("data-active"));
+  screens[name].setAttribute("data-active", "true");
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-.option-card{
-  position: relative;
-  text-align: left;
-  background: linear-gradient(180deg, var(--navy-soft), var(--navy));
-  border: 1.5px solid var(--navy-line);
-  border-radius: var(--radius-lg);
-  padding: 26px 22px;
-  cursor: pointer;
-  font-family: var(--font-body);
-  color: var(--white);
-  transition: border-color 0.2s var(--ease), transform 0.18s var(--ease), background 0.2s var(--ease);
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  min-height: 132px;
-}
-.option-card:hover{
-  border-color: rgba(212,188,133,0.55);
-  transform: translateY(-3px);
-  background: linear-gradient(180deg, var(--navy-soft), #333a4a);
-}
-.option-card:active{ transform: translateY(-1px); }
+function startQuiz(){
+  history = [];
+  currentQid = "q1";
+  attnScore = 0; identScore = 0;
+  attnScoreExclQ6 = 0; identScoreExclQ6 = 0;
+  completed = false;
+  sessionId = makeSessionId();
+  startedAt = new Date().toISOString();
 
-.option-letter{
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: var(--gold-dim);
-  color: var(--gold);
-  font-family: var(--font-display);
-  font-size: 15px;
-  letter-spacing: 0.02em;
+  trackEvent("quiz_start", { session_id: sessionId });
+
+  trackerWrap.hidden = false;
+  renderQuestion();
+  showScreen("question");
 }
 
-.option-text{
-  font-size: 15.5px;
-  line-height: 1.5;
-  font-weight: 500;
-  color: var(--white);
+function renderQuestion(){
+  const q = QUESTIONS[currentQid];
+  questionEyebrow.textContent = "Diagnosis";
+  questionTitle.textContent = q.prompt;
+
+  optionsGrid.innerHTML = "";
+  q.options.forEach(opt => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "option-card";
+    card.setAttribute("aria-label", opt.text);
+
+    const letter = document.createElement("span");
+    letter.className = "option-letter";
+    letter.textContent = opt.id;
+    card.appendChild(letter);
+
+    const text = document.createElement("span");
+    text.className = "option-text";
+    text.textContent = opt.text;
+    card.appendChild(text);
+
+    if (opt.stats){
+      const ul = document.createElement("ul");
+      ul.className = "option-stats";
+      opt.stats.forEach((s, i) => {
+        const li = document.createElement("li");
+        if (i === 0){
+          const strong = document.createElement("strong");
+          strong.textContent = s;
+          li.appendChild(strong);
+        } else {
+          li.textContent = s;
+        }
+        ul.appendChild(li);
+      });
+      card.appendChild(ul);
+    }
+
+    card.addEventListener("click", () => selectOption(currentQid, q, opt));
+    optionsGrid.appendChild(card);
+  });
+
+  backBtn.hidden = history.length === 0;
+  updateProgress();
+  updateSignalTracker();
 }
 
-.option-stats{
-  margin-top: auto;
-  padding-top: 12px;
-  border-top: 1px solid var(--navy-line);
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.option-stats li{
-  list-style: none;
-  font-size: 12.5px;
-  color: var(--muted);
-  display: flex;
-  gap: 8px;
-  align-items: baseline;
-}
-.option-stats li::before{
-  content: "";
-  width: 4px; height: 4px;
-  border-radius: 50%;
-  background: var(--gold);
-  flex: none;
-  transform: translateY(-2px);
+function selectOption(qid, question, opt){
+  attnScore += opt.attn;
+  identScore += opt.ident;
+  if (qid !== "q6"){
+    attnScoreExclQ6 += opt.attn;
+    identScoreExclQ6 += opt.ident;
+  }
+  history.push({ qid, option: opt });
+
+  trackEvent("question_answered", {
+    session_id: sessionId, question: qid, answer: opt.id, tag: opt.tag, signal: question.signal
+  });
+
+  if (opt.next === "RESULT"){
+    finishQuiz();
+    return;
+  }
+
+  currentQid = opt.next;
+  screens.question.style.opacity = "0";
+  setTimeout(() => {
+    renderQuestion();
+    screens.question.style.opacity = "1";
+  }, 160);
 }
 
-/* ---------------- Result ---------------- */
-.result-screen{ align-items: center; }
-.result-inner{ width: 100%; max-width: 620px; }
-
-.result-headline{
-  font-family: var(--font-display);
-  font-size: clamp(28px, 5vw, 40px);
-  font-weight: 400;
-  line-height: 1.08;
-  margin: 0 0 4px;
-}
-.result-band-name{
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--muted-2);
-  margin: 0 0 26px;
+function goBack(){
+  if (history.length === 0) return;
+  const last = history.pop();
+  attnScore -= last.option.attn;
+  identScore -= last.option.ident;
+  if (last.qid !== "q6"){
+    attnScoreExclQ6 -= last.option.attn;
+    identScoreExclQ6 -= last.option.ident;
+  }
+  currentQid = last.qid;
+  renderQuestion();
 }
 
-.spectrum-card{
-  background: linear-gradient(180deg, var(--navy-soft), var(--navy));
-  border: 1.5px solid var(--navy-line);
-  border-radius: var(--radius-lg);
-  padding: 26px 26px 22px;
-  margin-bottom: 26px;
-}
-.spectrum-labels{
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 10.5px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted-2);
-  font-weight: 700;
-  margin-bottom: 10px;
-  text-align: left;
-}
-.spectrum-labels span:last-child{ text-align: right; }
-.spectrum-labels em{ display:block; font-style: normal; text-transform: none; font-weight: 500; letter-spacing: 0; color: var(--muted-2); font-size: 10.5px; margin-top: 2px; }
-.spectrum-track{
-  position: relative;
-  height: 8px;
-  border-radius: 8px;
-  background: rgba(255,255,255,0.08);
-  margin-bottom: 18px;
-}
-.spectrum-fill{
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 50%;
-  border-radius: 8px;
-  background: linear-gradient(90deg, var(--gold), var(--gold-light));
-  transition: width 0.9s var(--ease);
-}
-.spectrum-marker{
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%,-62%);
-  color: var(--white);
-  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5));
-  transition: left 0.9s var(--ease);
-}
-.spectrum-split{
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-}
-.split-item{ display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.split-pct{
-  font-family: var(--font-display);
-  font-size: 34px;
-  color: var(--gold-light);
-  line-height: 1;
-}
-.split-label{
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--muted-2);
-  font-weight: 700;
-}
-.split-divider{ color: var(--muted-2); font-size: 20px; font-weight: 300; }
-
-.result-body{ text-align: left; margin-bottom: 8px; }
-.result-lede{
-  font-size: 16.5px;
-  line-height: 1.7;
-  color: var(--muted);
-  margin: 0 0 26px;
-}
-.result-lede strong{ color: var(--white); }
-
-.section-label{
-  font-size: 11px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--muted-2);
-  font-weight: 700;
-  margin: 0 0 12px;
-}
-.mix-heading{ margin-top: 6px; }
-
-.priority-block{ margin-bottom: 28px; }
-.priority-pills{ display: flex; flex-wrap: wrap; gap: 8px; }
-.priority-pill{
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--gold-light);
-  background: var(--gold-dim);
-  border: 1px solid rgba(212,188,133,0.3);
-  border-radius: 999px;
-  padding: 7px 14px;
+function updateProgress(){
+  const step = history.length + 1;
+  const pct = Math.min(100, Math.round((step / APPROX_TOTAL_STEPS) * 100));
+  progressFill.style.width = pct + "%";
 }
 
-.result-columns{ display: grid; gap: 14px; margin-bottom: 10px; }
-.result-columns.two-col{ grid-template-columns: 1fr 1fr; }
-@media (max-width: 560px){
-  .result-columns.two-col{ grid-template-columns: 1fr; }
+function updateSignalTracker(){
+  const reached = new Set(history.map(h => QUESTIONS[h.qid].signal));
+  // Treat the question about to be shown as "in progress" too, once relevant.
+  signalChips.forEach(chip => {
+    const sig = chip.getAttribute("data-signal");
+    chip.classList.toggle("is-active", reached.has(sig));
+  });
 }
 
-.mix-card{
-  background: rgba(255,255,255,0.03);
-  border: 1px solid var(--navy-line);
-  border-radius: var(--radius-md);
-  padding: 20px 20px 18px;
-}
-.mix-card h4{
-  font-family: var(--font-display);
-  font-weight: 400;
-  letter-spacing: 0.06em;
-  font-size: 16px;
-  color: var(--gold-light);
-  margin: 0 0 12px;
-  text-transform: uppercase;
-}
-.mix-card ul{ margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.mix-card li{
-  list-style: none;
-  font-size: 14px;
-  color: var(--muted);
-  padding-left: 16px;
-  position: relative;
-  line-height: 1.5;
-}
-.mix-card li::before{
-  content: "";
-  position: absolute;
-  left: 0; top: 8px;
-  width: 5px; height: 5px;
-  border-radius: 50%;
-  background: var(--gold);
+/* --------------------------------------------------------------------------
+   10. SCORING → BAND (spec sections 3 & 4, including the calibration guardrail)
+   -------------------------------------------------------------------------- */
+function bandIndexFromPct(pct){
+  if (pct >= 70) return 0; // 80/20 Attention Heavy
+  if (pct >= 55) return 1; // 60/40 Attention Led
+  if (pct >= 45) return 2; // 50/50 Hybrid
+  if (pct >= 31) return 3; // 40/60 Identity Led
+  return 4;                // 20/80 Identity Heavy (<=30)
 }
 
-.mix-note{
-  font-size: 13px;
-  color: var(--muted-2);
-  font-style: italic;
-  line-height: 1.6;
-  margin: 18px 0 4px;
+function computeBand(){
+  const totalIncl = attnScore + identScore;
+  const totalExcl = attnScoreExclQ6 + identScoreExclQ6;
+  const pctIncl = totalIncl === 0 ? 50 : (attnScore / totalIncl) * 100;
+  const pctExcl = totalExcl === 0 ? 50 : (attnScoreExclQ6 / totalExcl) * 100;
+
+  const bandIncl = bandIndexFromPct(pctIncl);
+  const bandExcl = bandIndexFromPct(pctExcl);
+
+  // Guardrail: Q6 (calibration) alone can shift the result by at most one
+  // band step away from the pre-calibration diagnosis (Q1–Q5). This is what
+  // prevents strong Awareness+Relevance signals from being overridden into
+  // an Identity-heavy result by Q6 alone, and vice versa.
+  let finalBand = bandIncl;
+  if (bandIncl - bandExcl > 1) finalBand = bandExcl + 1;
+  if (bandExcl - bandIncl > 1) finalBand = bandExcl - 1;
+
+  return { finalBand, pctIncl, guardrailApplied: finalBand !== bandIncl };
 }
 
-.cadence-block{ margin-top: 30px; }
-.cadence-card{
-  background: rgba(255,255,255,0.03);
-  border: 1px solid var(--navy-line);
-  border-radius: var(--radius-md);
-  padding: 22px 24px;
-}
-.cadence-value{
-  font-family: var(--font-display);
-  font-weight: 400;
-  font-size: 26px;
-  letter-spacing: 0.01em;
-  color: var(--gold-light);
-  margin: 0 0 8px;
-}
-.cadence-note{
-  font-size: 14px;
-  line-height: 1.65;
-  color: var(--muted);
-  margin: 0;
+function getDominantSignals(){
+  // Excludes q6 (calibration) tags by design.
+  const weighted = history
+    .filter(h => h.qid !== "q6")
+    .map(h => ({ tag: h.option.tag, weight: h.option.attn + h.option.ident }))
+    .sort((a, b) => b.weight - a.weight);
+  return weighted;
 }
 
-/* ---------------- Lead capture ---------------- */
-.lead-card{
-  margin-top: 34px;
-  background: linear-gradient(165deg, #37342A, var(--navy));
-  border: 1.5px solid rgba(212,188,133,0.28);
-  border-radius: var(--radius-lg);
-  padding: 30px;
-  text-align: left;
-}
-.lead-card h3{
-  font-family: var(--font-display);
-  font-weight: 400;
-  font-size: 24px;
-  letter-spacing: 0.01em;
-  margin: 0 0 8px;
-  color: var(--white);
-}
-.lead-card > p{
-  font-size: 14.5px;
-  color: var(--muted);
-  line-height: 1.6;
-  margin: 0 0 22px;
+function getTopPriorities(){
+  const totals = {};
+  history.forEach(h => {
+    const w = h.option.attn + h.option.ident;
+    totals[h.option.priority] = (totals[h.option.priority] || 0) + w;
+  });
+  return Object.entries(totals)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([label]) => label);
 }
 
-.lead-form{ display: flex; flex-direction: column; gap: 14px; }
-.field-row{ display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-@media (max-width: 480px){ .field-row{ grid-template-columns: 1fr; } }
-
-.field{ display: flex; flex-direction: column; gap: 7px; }
-.field span{
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted-2);
-}
-.field span em{
-  font-style: normal;
-  font-weight: 500;
-  text-transform: none;
-  letter-spacing: 0;
-  opacity: 0.75;
-}
-.field input{
-  font-family: var(--font-body);
-  font-size: 15px;
-  color: var(--white);
-  background: rgba(0,0,0,0.22);
-  border: 1.5px solid var(--navy-line);
-  border-radius: var(--radius-sm);
-  padding: 12px 14px;
-  transition: border-color 0.2s;
-}
-.field input:focus{
-  border-color: var(--gold);
-  outline: none;
-}
-.field input::placeholder{ color: var(--muted-2); }
-
-.lead-form .btn-primary{ margin-top: 8px; }
-.form-note{
-  text-align: center;
-  font-size: 11.5px;
-  color: var(--muted-2);
-  margin: 4px 0 0;
+function pickProportional(list, count){
+  count = Math.max(1, Math.min(list.length, Math.round(count)));
+  return list.slice(0, count);
 }
 
-.lead-success{
-  text-align: center;
-  padding: 20px 10px;
-  color: var(--gold-light);
-}
-.lead-success h3{
-  font-family: var(--font-display);
-  font-weight: 400;
-  font-size: 22px;
-  color: var(--white);
-  margin: 14px 0 8px;
-}
-.lead-success p{ color: var(--muted); font-size: 14px; margin: 0; }
+/* --------------------------------------------------------------------------
+   11. RESULT RENDERING
+   -------------------------------------------------------------------------- */
+function finishQuiz(){
+  completed = true;
+  const completedAt = new Date().toISOString();
+  const { finalBand, pctIncl } = computeBand();
+  const band = BANDS[finalBand];
 
-/* Responsive tightening */
-@media (max-width: 480px){
-  .app{ padding: 20px 16px 70px; }
-  .spectrum-card{ padding: 22px 18px 18px; }
-  .lead-card{ padding: 24px 20px; }
-  .signal-chip{ font-size: 9.5px; padding: 5px 9px; }
+  trackEvent("quiz_completed", { session_id: sessionId, result_band: band.name });
+  trackEvent("result_shown", {
+    session_id: sessionId, result_band: band.name, attention_pct: band.attn, identity_pct: band.ident
+  });
+
+  progressFill.style.width = "100%";
+
+  // ---- 1 & 2 & 3: label, spectrum, ratio ----
+  document.getElementById("resultLabel").textContent = `${band.attn}% Attention / ${band.ident}% Identity`;
+  document.getElementById("resultBandName").textContent = band.name;
+  document.getElementById("pctAttention").textContent = band.attn + "%";
+  document.getElementById("pctIdentity").textContent = band.ident + "%";
+  document.getElementById("spectrumFill").style.width = band.attn + "%";
+  document.getElementById("spectrumMarker").style.left = band.attn + "%";
+
+  // ---- 4: personalized explanation ----
+  const dominant = getDominantSignals();
+  let lede = band.base;
+  if (dominant.length){
+    const top = dominant[0];
+    const phrase = TAG_COPY[top.tag];
+    if (phrase) lede += ` In your case, ${phrase}.`;
+  }
+  document.getElementById("resultLede").innerHTML = lede;
+
+  // ---- 5: top three priorities ----
+  const priorities = getTopPriorities();
+  const priorityWrap = document.getElementById("priorityPills");
+  priorityWrap.innerHTML = "";
+  priorities.forEach(p => {
+    const pill = document.createElement("span");
+    pill.className = "priority-pill";
+    pill.textContent = p;
+    priorityWrap.appendChild(pill);
+  });
+
+  // ---- 6: recommended content mix, proportioned to the ratio ----
+  const totalSlots = 6;
+  const attnCount = pickProportional(ATTENTION_CONTENT, (band.attn / 100) * totalSlots);
+  const identCount = pickProportional(IDENTITY_CONTENT, (band.ident / 100) * totalSlots);
+  const attnList = document.getElementById("mixAttention");
+  const identList = document.getElementById("mixIdentity");
+  attnList.innerHTML = "";
+  identList.innerHTML = "";
+  attnCount.forEach(item => { const li = document.createElement("li"); li.textContent = item; attnList.appendChild(li); });
+  identCount.forEach(item => { const li = document.createElement("li"); li.textContent = item; identList.appendChild(li); });
+
+  // ---- posting frequency, keyed to the same band ----
+  const frequency = POSTING_FREQUENCY[finalBand];
+  document.getElementById("cadenceValue").textContent = frequency.cadence;
+  document.getElementById("cadenceNote").textContent = frequency.note;
+
+  // ---- 7: CTA / lead payload ----
+  const byQid = id => history.find(h => h.qid === id);
+  const q1 = byQid("q1"), q2a = byQid("q2a"), q2b = byQid("q2b"), q2c = byQid("q2c"),
+        q3 = byQid("q3"), q4 = byQid("q4"), q5 = byQid("q5"), q6 = byQid("q6");
+  const q2Variant = q2a ? "q2a" : (q2b ? "q2b" : "");
+  const q2Answer = q2a ? q2a.option.id : (q2b ? q2b.option.id : "");
+  const dominantLabels = dominant.slice(0, 3).map(d => TAG_COPY[d.tag] || d.tag);
+  const answerPath = history
+    .map((h, i) => `${i + 1}. ${QUESTIONS[h.qid].prompt}\n   → ${h.option.text}`)
+    .join("\n\n");
+
+  // Human-readable digest — this is what makes the email easy to scan.
+  const summary = [
+    `RESULT: ${band.attn}% Attention / ${band.ident}% Identity  (${band.name})`,
+    ``,
+    `WHY THEY LANDED HERE`,
+    dominantLabels.length ? dominantLabels.map(d => `• ${d}`).join("\n") : "• No single signal dominated — answers were evenly split.",
+    ``,
+    `TOP PRIORITIES`,
+    priorities.length ? priorities.map(p => `• ${p}`).join("\n") : "• N/A",
+    ``,
+    `RECOMMENDED POSTING FREQUENCY`,
+    `${frequency.cadence}`,
+    ``,
+    `FULL ANSWER PATH`,
+    answerPath,
+    ``,
+    `Session: ${sessionId}`,
+    `Started:   ${startedAt}`,
+    `Completed: ${completedAt}`
+  ].join("\n");
+
+  // Stash everything the EmailJS template needs so the submit handler
+  // doesn't have to recompute it.
+  lastResult = {
+    band, dominantLabels, priorities, frequency, answerPath, completedAt, explanation: lede
+  };
+
+  document.getElementById("hSummary").value = summary;
+  document.getElementById("hBand").value = `${band.name} (${band.attn}/${band.ident})`;
+  document.getElementById("hRatio").value = `${band.attn}% Attention / ${band.ident}% Identity`;
+
+  document.getElementById("hSessionId").value = sessionId;
+  document.getElementById("hStartedAt").value = startedAt;
+  document.getElementById("hCompletedAt").value = completedAt;
+  document.getElementById("hQ1").value = q1 ? q1.option.id : "";
+  document.getElementById("hQ2Variant").value = q2Variant;
+  document.getElementById("hQ2Answer").value = q2Answer;
+  document.getElementById("hQ2c").value = q2c ? q2c.option.id : "";
+  document.getElementById("hQ3").value = q3 ? q3.option.id : "";
+  document.getElementById("hQ4").value = q4 ? q4.option.id : "";
+  document.getElementById("hQ5").value = q5 ? q5.option.id : "";
+  document.getElementById("hQ6").value = q6 ? q6.option.id : "";
+  document.getElementById("hAttnScore").value = attnScore;
+  document.getElementById("hIdScore").value = identScore;
+  document.getElementById("hAttnPct").value = band.attn;
+  document.getElementById("hIdPct").value = band.ident;
+  document.getElementById("hBandRaw").value = band.name;
+  document.getElementById("hDominant").value = dominant.slice(0, 3).map(d => d.tag).join(", ");
+  document.getElementById("hPath").value = answerPath;
+
+  document.getElementById("leadForm").hidden = false;
+  document.getElementById("leadSuccess").hidden = true;
+  document.getElementById("leadForm").reset();
+
+  showScreen("result");
 }
+
+/* --------------------------------------------------------------------------
+   12. LEAD FORM SUBMISSION
+   -------------------------------------------------------------------------- */
+const leadForm = document.getElementById("leadForm");
+const submitLeadBtn = document.getElementById("submitLeadBtn");
+
+leadForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  trackEvent("cta_click", { session_id: sessionId });
+
+  // Build a scannable subject line now that we know who this is.
+  const name = leadForm.querySelector('[name="lead_name"]').value.trim();
+  const company = leadForm.querySelector('[name="lead_company"]').value.trim();
+  const email = leadForm.querySelector('[name="lead_email"]').value.trim();
+  const phone = leadForm.querySelector('[name="lead_phone"]').value.trim();
+  const bandLabel = document.getElementById("hBandRaw").value;
+  document.getElementById("hSubject").value =
+    `New Lead: ${bandLabel} — ${company || name || "PEM Strategy Finder"}`;
+
+  const originalText = submitLeadBtn.innerHTML;
+  submitLeadBtn.disabled = true;
+  submitLeadBtn.innerHTML = "<span>Sending…</span>";
+
+  const emailjsReady = window.emailjs && !EMAILJS_PUBLIC_KEY.includes("YOUR_")
+    && !EMAILJS_SERVICE_ID.includes("YOUR_") && !EMAILJS_TEMPLATE_ID.includes("YOUR_");
+  const formspreeReady = !FORM_ENDPOINT.includes("YOUR_FORM_ID");
+
+  if (!emailjsReady && !formspreeReady){
+    alert("Heads up: the lead form isn't connected yet. Set FORM_ENDPOINT and/or the EMAILJS_* constants in script.js — see README.md for setup steps.");
+    submitLeadBtn.disabled = false;
+    submitLeadBtn.innerHTML = originalText;
+    return;
+  }
+
+  const tasks = [];
+
+  if (formspreeReady){
+    tasks.push(
+      fetch(FORM_ENDPOINT, {
+        method: "POST",
+        headers: { "Accept": "application/json" },
+        body: new FormData(leadForm)
+      }).then(res => { if (!res.ok) throw new Error("Formspree submission failed"); })
+    );
+  }
+
+  if (emailjsReady && lastResult){
+    const r = lastResult;
+    const templateParams = {
+      lead_name: name,
+      lead_company: company,
+      lead_email: email,
+      lead_phone: phone || "—",
+      result_band: r.band.name,
+      ratio_label: `${r.band.attn}% Attention / ${r.band.ident}% Identity`,
+      explanation: r.explanation,
+      // Plain text, not HTML — EmailJS escapes tags in variables, so any
+      // markup embedded here would show up as literal text (as it did in
+      // testing). The template instead renders these inside a container
+      // styled with `white-space:pre-line`, so plain "\n" line breaks and
+      // "•" bullet characters display correctly without needing real tags.
+      signals_text: r.dominantLabels.length
+        ? r.dominantLabels.map(d => `•  ${d}`).join("\n")
+        : "•  No single signal dominated — answers were evenly split.",
+      priorities_text: r.priorities.length ? r.priorities.join("   •   ") : "—",
+      cadence_label: r.frequency.cadence,
+      answer_path_text: r.answerPath,
+      completed_at: r.completedAt
+    };
+    tasks.push(emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, templateParams));
+  }
+
+  const results = await Promise.allSettled(tasks);
+  const anySuccess = results.some(r => r.status === "fulfilled");
+  results.forEach(r => { if (r.status === "rejected") console.warn("[PEM lead delivery] one channel failed:", r.reason); });
+
+  if (anySuccess){
+    trackEvent("lead_submitted", { session_id: sessionId });
+    leadForm.hidden = true;
+    document.getElementById("leadSuccess").hidden = false;
+  } else {
+    alert("Something went wrong sending your details. Please try again, or email Cameron@peakexposuremedia.com directly.");
+    submitLeadBtn.disabled = false;
+    submitLeadBtn.innerHTML = originalText;
+  }
+});
+
+/* --------------------------------------------------------------------------
+   13. ABANDONMENT TRACKING
+   -------------------------------------------------------------------------- */
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden" && sessionId && !completed && history.length > 0){
+    trackEvent("quiz_abandoned", { session_id: sessionId, last_question: currentQid, questions_answered: history.length });
+  }
+});
+
+/* --------------------------------------------------------------------------
+   14. EVENTS
+   -------------------------------------------------------------------------- */
+document.getElementById("startBtn").addEventListener("click", startQuiz);
+backBtn.addEventListener("click", goBack);
+document.getElementById("restartBtn").addEventListener("click", () => {
+  trackerWrap.hidden = true;
+  signalChips.forEach(c => c.classList.remove("is-active"));
+  showScreen("intro");
+});

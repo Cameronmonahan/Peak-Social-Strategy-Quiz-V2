@@ -31,6 +31,13 @@
 *{box-sizing:border-box;}
 html,body{margin:0;padding:0;}
 
+/* Guards against any class-based `display` rule silently overriding the
+   native `hidden` attribute (a common CSS gotcha — e.g. `.lead-form{
+   display:flex }` would otherwise beat the browser's default `[hidden]{
+   display:none }` and the element stays visible even when JS sets
+   `.hidden = true`). */
+[hidden]{ display: none !important; }
+
 body{
   background: var(--navy-deep);
   color: var(--white);
